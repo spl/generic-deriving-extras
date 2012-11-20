@@ -52,7 +52,7 @@ querydefault :: (Generic c, Query' (Rep c) a) => Q c a b
 querydefault e p f = query' e p f . from
 
 queryapply :: Q a a b
-queryapply _ _ f x = f x
+queryapply _ _ f = f
 
 queryempty :: Q c a b
 queryempty e _ _ _ = e
