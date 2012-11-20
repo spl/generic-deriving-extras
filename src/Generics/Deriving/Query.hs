@@ -5,6 +5,8 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverlappingInstances #-}
 
+--------------------------------------------------------------------------------
+
 module Generics.Deriving.Query (
   Q,
   Query(..),
@@ -128,6 +130,4 @@ mquery = query mempty mappend
 
 collect :: (Query c a, Alternative f) => c -> f a
 collect = query empty (<|>) pure
-
---------------------------------------------------------------------------------
 
