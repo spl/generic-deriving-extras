@@ -33,14 +33,14 @@ instance QueryWith' (K1 i a) a where
 instance QueryWith b a => QueryWith' (K1 i b) a where
   queryWith' f (K1 x) = queryWith f x
 
-instance QueryWith' f b => QueryWith' (M1 i c f) b where
+instance QueryWith' f a => QueryWith' (M1 i c f) a where
   queryWith' f (M1 x) = queryWith' f x
 
-instance (QueryWith' f b, QueryWith' h b) => QueryWith' (f :+: h) b where
+instance (QueryWith' f a, QueryWith' h a) => QueryWith' (f :+: h) a where
   queryWith' f (L1 x) = queryWith' f x
   queryWith' f (R1 x) = queryWith' f x
 
-instance (QueryWith' f b, QueryWith' h b) => QueryWith' (f :*: h) b where
+instance (QueryWith' f a, QueryWith' h a) => QueryWith' (f :*: h) a where
   queryWith' f (x :*: y) = queryWith' f x `mappend` queryWith' f y
 
 --------------------------------------------------------------------------------
@@ -76,14 +76,14 @@ instance Collect' (K1 i a) a where
 instance Collect b a => Collect' (K1 i b) a where
   collect' (K1 x) = collect x
 
-instance Collect' f b => Collect' (M1 i c f) b where
+instance Collect' f a => Collect' (M1 i c f) a where
   collect' (M1 x) = collect' x
 
-instance (Collect' f b, Collect' h b) => Collect' (f :+: h) b where
+instance (Collect' f a, Collect' h a) => Collect' (f :+: h) a where
   collect' (L1 x) = collect' x
   collect' (R1 x) = collect' x
 
-instance (Collect' f b, Collect' h b) => Collect' (f :*: h) b where
+instance (Collect' f a, Collect' h a) => Collect' (f :*: h) a where
   collect' (x :*: y) = collect' x <|> collect' y
 
 --------------------------------------------------------------------------------
