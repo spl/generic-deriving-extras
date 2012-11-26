@@ -6,7 +6,7 @@
 
 --------------------------------------------------------------------------------
 
-module Generics.Instant.Zipper.Base (
+module Generics.Deriving.Zipper.Base (
   Zipper(..),
   Dir(..),
   enter,
