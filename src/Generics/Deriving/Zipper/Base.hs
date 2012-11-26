@@ -159,3 +159,24 @@ get (Loc foc _) = foc
 set :: a -> Loc a r c -> Loc a r c
 set foc (Loc _ ctxs) = Loc foc ctxs
 
+--------------------------------------------------------------------------------
+
+instance Zipper Bool
+instance Zipper Char
+instance Zipper Double
+instance Zipper Float
+instance Zipper Int
+instance Zipper Ordering
+
+instance Typeable a => Zipper [a]
+instance Typeable a => Zipper (Maybe a)
+instance (Typeable a, Typeable b) => Zipper (Either a b)
+
+instance Zipper ()
+instance (Typeable a, Typeable b) => Zipper (a, b)
+instance (Typeable a, Typeable b, Typeable c) => Zipper (a, b, c)
+instance (Typeable a, Typeable b, Typeable c, Typeable d) => Zipper (a, b, c, d)
+instance (Typeable a, Typeable b, Typeable c, Typeable d, Typeable e) => Zipper (a, b, c, d, e)
+instance (Typeable a, Typeable b, Typeable c, Typeable d, Typeable e, Typeable f) => Zipper (a, b, c, d, e, f)
+instance (Typeable a, Typeable b, Typeable c, Typeable d, Typeable e, Typeable f, Typeable g) => Zipper (a, b, c, d, e, f, g)
+
