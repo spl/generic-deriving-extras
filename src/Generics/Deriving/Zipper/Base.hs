@@ -9,8 +9,14 @@
 module Generics.Deriving.Zipper.Base (
   Zipper(..),
   Dir(..),
+  -- *
   enter,
   leave,
+  -- *
+  up,
+  down,
+  move,
+  -- *
   get,
   set,
   -- *
@@ -22,8 +28,6 @@ module Generics.Deriving.Zipper.Base (
 ) where
 
 --------------------------------------------------------------------------------
-
-import Prelude hiding (last)
 
 import Control.Arrow (second)
 import Control.Applicative ((<$>), (<*>), (<|>))
