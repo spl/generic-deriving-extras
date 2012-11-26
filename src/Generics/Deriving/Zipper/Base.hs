@@ -6,7 +6,7 @@
 
 --------------------------------------------------------------------------------
 
-module Generics.Instant.Zipper (
+module Generics.Instant.Zipper.Base (
   Zipper(..),
   enter,
   leave,
