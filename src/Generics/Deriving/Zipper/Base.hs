@@ -129,13 +129,20 @@ fromPair cs (foc, c) = Loc foc (CCons c cs)
 
 --------------------------------------------------------------------------------
 
--- | Navigation
+class (Generic a, Zipper' (Rep a), Typeable a) => Zipper a
 
-get :: Loc a r c -> a
-get (Loc foc _) = foc
+--------------------------------------------------------------------------------
 
-set :: a -> Loc a r c -> Loc a r c
-set foc (Loc _ ctxs) = Loc foc ctxs
+up :: (Zipper a, Zipper b) => Loc a r (b :<: c) -> Loc b r c
+up (Loc foc (CCons c cs)) = fromJust (fromOne cs <$> fill c foc)
+
+down :: (Zipper a, Zipper b) => Dir -> Loc a r c -> Maybe (Loc b r (a :<: c))
+down dir (Loc h cs) = fromPair cs <$> split dir (from h)
+
+move :: (Zipper a, Zipper b) => Dir -> Loc a r (c :<: cs) -> Maybe (Loc b r (c :<: cs))
+move dir (Loc h (CCons c cs)) = fromPair cs <$> creep dir c h
+
+--------------------------------------------------------------------------------
 
 enter :: Zipper a => a -> Loc a a Empty
 enter foc = Loc foc CNil
@@ -144,14 +151,11 @@ leave :: Zipper a => Loc a r c -> r
 leave (Loc f CNil) = f
 leave loc@(Loc _ (CCons {})) = leave (up loc)
 
-class (Generic a, Zipper' (Rep a), Typeable a) => Zipper a where
+--------------------------------------------------------------------------------
 
-  up :: Zipper b => Loc a r (b :<: c) -> Loc b r c
-  up (Loc foc (CCons c cs)) = fromJust (fromOne cs <$> fill c foc)
+get :: Loc a r c -> a
+get (Loc foc _) = foc
 
-  down :: Zipper b => Dir -> Loc a r c -> Maybe (Loc b r (a :<: c))
-  down dir (Loc h cs) = fromPair cs <$> split dir (from h)
-
-  move :: Zipper b => Dir -> Loc a r (c :<: cs) -> Maybe (Loc b r (c :<: cs))
-  move dir (Loc h (CCons c cs)) = fromPair cs <$> creep dir c h
+set :: a -> Loc a r c -> Loc a r c
+set foc (Loc _ ctxs) = Loc foc ctxs
 
