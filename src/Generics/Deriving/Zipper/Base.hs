@@ -8,20 +8,15 @@
 
 module Generics.Instant.Zipper.Base (
   Zipper(..),
+  Dir(..),
   enter,
   leave,
-  first,
-  last,
-  left,
-  right,
   get,
   set,
   -- *
   Loc,
   Empty,
   (:<:),
-  Pos,
-  Dir,
   -- *
   module Data.Typeable,
 ) where
@@ -56,29 +51,13 @@ data instance Ctx (f :*: g) p = C1 (g p) (Ctx f p)
 
 --------------------------------------------------------------------------------
 
-type Choice a = Maybe a -> Maybe a -> Maybe a
-
-type Pos = forall a . Choice a
-
-first :: Pos
-first = (<|>)
-
-last :: Pos
-last = flip (<|>)
-
-type Dir = forall a . (Choice a, Choice a)
-
-right :: Dir
-right = ((<|>), const)
-
-left :: Dir
-left = (const, (<|>))
+data Dir = L | R deriving (Show, Eq)
 
 --------------------------------------------------------------------------------
 
 class Zipper' f where
   fill  :: Typeable a => Ctx f p -> a -> Maybe (f p)
-  split :: Typeable a => Pos -> f p -> Maybe (a, Ctx f p)
+  split :: Typeable a => Dir -> f p -> Maybe (a, Ctx f p)
   creep :: (Typeable a, Typeable b) => Dir -> Ctx f p -> a -> Maybe (b, Ctx f p)
 
 instance Zipper' U1 where
@@ -93,26 +72,38 @@ instance Typeable a => Zipper' (K1 i a) where
 
 instance Zipper' f => Zipper' (M1 i c f) where
   fill (CM c) x = M1 <$> fill c x
-  split pos (M1 x) = fmap CM <$> split pos x
+  split dir (M1 x) = fmap CM <$> split dir x
   creep dir (CM c) x = fmap CM <$> creep dir c x
 
 instance (Zipper' f, Zipper' g) => Zipper' (f :+: g) where
   fill (CL l) x = L1 <$> fill l x
   fill (CR r) x = R1 <$> fill r x
-  split pos (L1 x) = fmap CL <$> split pos x
-  split pos (R1 x) = fmap CR <$> split pos x
+  split dir (L1 x) = fmap CL <$> split dir x
+  split dir (R1 x) = fmap CR <$> split dir x
   creep dir (CL c) x = fmap CL <$> creep dir c x
   creep dir (CR c) y = fmap CR <$> creep dir c y
 
 instance (Zipper' f, Zipper' g) => Zipper' (f :*: g) where
   fill (C1 y c) x = (:*: y) <$> fill c x
   fill (C2 x c) y = (x :*:) <$> fill c y
-  split pos (x :*: y) = pos (fmap (C1 y) <$> split pos x)
-                             (fmap (C2 x) <$> split pos y)
-  creep dir (C1 y c) x = fst dir (fmap (C1 y) <$> creep dir c x)
-                                 (second . C2 <$> fill c x <*> split first y)
-  creep dir (C2 x c) y = snd dir (fmap (C2 x) <$> creep dir c y)
-                                 (second . C1 <$> fill c y <*> split last x)
+  split dir (x :*: y) =
+    choose dir (fmap (C1 y) <$> split dir x)
+               (fmap (C2 x) <$> split dir y)
+    where
+      choose L = (<|>)
+      choose R = flip (<|>)
+  creep dir (C1 y c) x =
+    choose dir (fmap (C1 y) <$> creep dir c x)
+               (second . C2 <$> fill c x <*> split L y)
+    where
+      choose L = const
+      choose R = (<|>)
+  creep dir (C2 x c) y =
+    choose dir (fmap (C2 x) <$> creep dir c y)
+               (second . C1 <$> fill c y <*> split R x)
+    where
+      choose L = (<|>)
+      choose R = const
 
 --------------------------------------------------------------------------------
 
@@ -158,8 +149,8 @@ class (Generic a, Zipper' (Rep a), Typeable a) => Zipper a where
   up :: Zipper b => Loc a r (b :<: c) -> Loc b r c
   up (Loc foc (CCons c cs)) = fromJust (fromOne cs <$> fill c foc)
 
-  down :: Zipper b => Pos -> Loc a r c -> Maybe (Loc b r (a :<: c))
-  down pos (Loc h cs) = fromPair cs <$> split pos (from h)
+  down :: Zipper b => Dir -> Loc a r c -> Maybe (Loc b r (a :<: c))
+  down dir (Loc h cs) = fromPair cs <$> split dir (from h)
 
   move :: Zipper b => Dir -> Loc a r (c :<: cs) -> Maybe (Loc b r (c :<: cs))
   move dir (Loc h (CCons c cs)) = fromPair cs <$> creep dir c h
