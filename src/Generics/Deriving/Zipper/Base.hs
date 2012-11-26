@@ -35,7 +35,7 @@ import Data.Maybe (fromJust)
 
 import Data.Typeable
 
-import Generics.Deriving
+import Generics.Deriving.Base
 
 --------------------------------------------------------------------------------
 
