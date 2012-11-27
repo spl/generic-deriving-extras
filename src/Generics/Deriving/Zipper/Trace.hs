@@ -8,6 +8,8 @@ module Generics.Deriving.Zipper.Trace (
   Zipper(..),
   ZipperT,
   runZipperT,
+  ZipperM,
+  runZipperM,
   Dir(..),
   Path(..),
   -- *
@@ -39,6 +41,8 @@ module Generics.Deriving.Zipper.Trace (
 import Generics.Deriving.Zipper.Base hiding (enter, leave, up, down, move, get, set, modify)
 import qualified Generics.Deriving.Zipper.Base as Base
 
+import Data.Functor.Identity
+
 import Control.Applicative (Applicative)
 
 import Control.Monad (liftM)
@@ -68,6 +72,11 @@ runZipperT :: Monad m => ZipperT m a -> m (Either Path a)
 runZipperT z = liftM changeResults (runErrorT (runStateT (unZipperT z) id))
   where
     changeResults = either (Left . ($ [])) (Right . fst)
+
+type ZipperM = ZipperT Identity
+
+runZipperM :: ZipperM a -> Either Path a
+runZipperM = runIdentity . runZipperT
 
 --------------------------------------------------------------------------------
 
