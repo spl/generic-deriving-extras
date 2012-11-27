@@ -28,9 +28,15 @@ module Generics.Deriving.Zipper.Trace (
   Loc,
   Empty,
   (:<:),
+  -- *
+  Generic,
+  Typeable,
 ) where
 
 --------------------------------------------------------------------------------
+
+import Generics.Deriving.Zipper.Base hiding (enter, leave, up, down, move, get, set)
+import qualified Generics.Deriving.Zipper.Base as Base
 
 import Control.Applicative (Applicative)
 
@@ -39,10 +45,6 @@ import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Error
 import Control.Monad.Trans.State.Lazy hiding (get)
 import qualified Control.Monad.Trans.State.Lazy as State (get)
-
-import Generics.Deriving.Base
-import Generics.Deriving.Zipper.Base hiding (enter, leave, up, down, move, get, set)
-import qualified Generics.Deriving.Zipper.Base as Base
 
 --------------------------------------------------------------------------------
 

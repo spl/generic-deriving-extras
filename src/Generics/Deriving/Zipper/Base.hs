@@ -26,18 +26,18 @@ module Generics.Deriving.Zipper.Base (
   Empty,
   (:<:),
   -- *
-  module Data.Typeable,
+  Generic,
+  Typeable,
 ) where
 
 --------------------------------------------------------------------------------
 
+import Data.Typeable (Typeable, cast)
+import Generics.Deriving.Base
+
 import Control.Arrow (second)
 import Control.Applicative ((<$>), (<*>), (<|>))
 import Data.Maybe (fromJust)
-
-import Data.Typeable
-
-import Generics.Deriving.Base
 
 --------------------------------------------------------------------------------
 
