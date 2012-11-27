@@ -21,6 +21,7 @@ module Generics.Deriving.Zipper.Base (
   -- *
   get,
   set,
+  modify,
   -- *
   Loc,
   Empty,
@@ -165,6 +166,9 @@ get (Loc foc _) = foc
 
 set :: a -> Loc a r c -> Loc a r c
 set foc (Loc _ ctxs) = Loc foc ctxs
+
+modify :: (a -> a) -> Loc a r c -> Loc a r c
+modify f (Loc foc ctxs) = Loc (f foc) ctxs
 
 --------------------------------------------------------------------------------
 

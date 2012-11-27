@@ -24,6 +24,7 @@ module Generics.Deriving.Zipper.Trace (
   -- *
   get,
   set,
+  modify,
   -- *
   Loc,
   Empty,
@@ -35,7 +36,7 @@ module Generics.Deriving.Zipper.Trace (
 
 --------------------------------------------------------------------------------
 
-import Generics.Deriving.Zipper.Base hiding (enter, leave, up, down, move, get, set)
+import Generics.Deriving.Zipper.Base hiding (enter, leave, up, down, move, get, set, modify)
 import qualified Generics.Deriving.Zipper.Base as Base
 
 import Control.Applicative (Applicative)
@@ -43,8 +44,8 @@ import Control.Applicative (Applicative)
 import Control.Monad (liftM)
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Error
-import Control.Monad.Trans.State.Lazy hiding (get)
-import qualified Control.Monad.Trans.State.Lazy as State (get)
+import Control.Monad.Trans.State.Lazy hiding (get, modify)
+import qualified Control.Monad.Trans.State.Lazy as State (get, modify)
 
 --------------------------------------------------------------------------------
 
@@ -71,10 +72,10 @@ runZipperT z = liftM changeResults (runErrorT (runStateT (unZipperT z) id))
 --------------------------------------------------------------------------------
 
 z_log :: Monad m => Step -> ZipperT m ()
-z_log p = ZipperT $ modify (. (:) p)
+z_log p = ZipperT $ State.modify (. (:) p)
 
 z_log_up :: Monad m => ZipperT m ()
-z_log_up = ZipperT $ modify (tail .)
+z_log_up = ZipperT $ State.modify (tail .)
 
 z_error :: Monad m => ZipperT m a
 z_error = ZipperT $ State.get >>= lift . throwError
@@ -126,4 +127,7 @@ get = return . Base.get
 
 set :: Monad m => a -> Loc a r c -> ZipperT m (Loc a r c)
 set x = return . Base.set x
+
+modify :: Monad m => (a -> a) -> Loc a r c -> ZipperT m (Loc a r c)
+modify f = return . Base.modify f
 
