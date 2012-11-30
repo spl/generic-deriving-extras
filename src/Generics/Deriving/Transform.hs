@@ -4,236 +4,330 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverlappingInstances #-}
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 --------------------------------------------------------------------------------
 
 module Generics.Deriving.Transform (
   T,
-  TransformUp(..),
-  TW,
-  TransformUpWith(..),
-  transformUpA,
-  transformUpM,
-  transformUpdefault,
-  transformUpapply,
-  transformUpempty,
-  transformUpWithdefault,
-  transformUpWithapply,
-  transformUpWithempty,
+  TM,
+  Transform(..),
+  bottomUp_default,
+  bottomUp_empty,
+  bottomUp_apply,
+  bottomUp_apply1,
+  topDown_default,
+  topDown_empty,
+  topDown_apply,
+  topDown_apply1,
+  bottomUpM_default,
+  bottomUpM_empty,
+  bottomUpM_apply,
+  bottomUpM_apply1,
+  topDownM_default,
+  topDownM_empty,
+  topDownM_apply,
+  topDownM_apply1,
 ) where
 
 --------------------------------------------------------------------------------
 
 import GHC.Generics
-import Control.Monad (liftM, ap)
-import Control.Applicative (Applicative(pure, (<*>)))
+import Control.Monad (liftM, liftM2, (<=<))
 
 --------------------------------------------------------------------------------
 
-type T b a = (a -> a) -> b -> b
-
--- | The type-indexed function
-
-class TransformUp' f a where
-  transformUp' :: T (f x) a
-
-instance TransformUp' U1 a where
-  transformUp' _ U1 = U1
-
-instance TransformUp b a => TransformUp' (K1 i b) a where
-  transformUp' f (K1 x) = K1 (transformUp f x)
-
-instance TransformUp' f a => TransformUp' (M1 i c f) a where
-  transformUp' f (M1 x) = M1 (transformUp' f x)
-
-instance (TransformUp' f a, TransformUp' h a) => TransformUp' (f :+: h) a where
-  transformUp' f (L1 x) = L1 (transformUp' f x)
-  transformUp' f (R1 x) = R1 (transformUp' f x)
-
-instance (TransformUp' f a, TransformUp' h a) => TransformUp' (f :*: h) a where
-  transformUp' f (x :*: y) = transformUp' f x :*: transformUp' f y
+type T    b a = (a ->   a) -> b ->   b
+type TM m b a = (a -> m a) -> b -> m b
 
 --------------------------------------------------------------------------------
 
-transformUpdefault :: (Generic b, TransformUp' (Rep b) a) => T b a
-transformUpdefault f = to . transformUp' f . from
+class Transform' f a where
+  bottomUp'  ::            T    (f x) a
+  topDown'   ::            T    (f x) a
+  bottomUpM' :: Monad m => TM m (f x) a
+  topDownM'  :: Monad m => TM m (f x) a
 
-transformUpapply :: T a a
-transformUpapply f = f
+instance Transform' U1 a where
+  bottomUp'  _ U1 = U1
+  topDown'   _ U1 = U1
+  bottomUpM' _ U1 = return U1
+  topDownM'  _ U1 = return U1
 
-transformUpempty :: T b a
-transformUpempty _ x = x
+instance Transform b a => Transform' (K1 i b) a where
+  bottomUp'  f (K1 x) = K1 (bottomUp f x)
+  topDown'   f (K1 x) = K1 (topDown  f x)
+  bottomUpM' f (K1 x) = liftM K1 (bottomUpM f x)
+  topDownM'  f (K1 x) = liftM K1 (topDownM  f x)
 
---------------------------------------------------------------------------------
+instance Transform' f a => Transform' (M1 i c f) a where
+  bottomUp'  f (M1 x) = M1 (bottomUp' f x)
+  topDown'   f (M1 x) = M1 (topDown'  f x)
+  bottomUpM' f (M1 x) = liftM M1 (bottomUpM' f x)
+  topDownM'  f (M1 x) = liftM M1 (topDownM'  f x)
 
-class TransformUp b a where
-  transformUp :: T b a
+instance (Transform' f a, Transform' g a) => Transform' (f :+: g) a where
+  bottomUp'  f (L1 x) = L1 (bottomUp' f x)
+  bottomUp'  f (R1 x) = R1 (bottomUp' f x)
+  topDown'   f (L1 x) = L1 (topDown'  f x)
+  topDown'   f (R1 x) = R1 (topDown'  f x)
+  bottomUpM' f (L1 x) = liftM L1 (bottomUpM' f x)
+  bottomUpM' f (R1 x) = liftM R1 (bottomUpM' f x)
+  topDownM'  f (L1 x) = liftM L1 (topDownM'  f x)
+  topDownM'  f (R1 x) = liftM R1 (topDownM'  f x)
 
-  default transformUp :: (Generic b, TransformUp' (Rep b) a) => T b a
-  transformUp = transformUpdefault
-
---------------------------------------------------------------------------------
-
--- Each type requires two instances.
-
--- 1. Matching - query type equals result type
-
--- 2. Default - query type does not equal result type
-
--- These types (mostly primitive) are the leaves of datatypes, so their default
--- instances need to stop the recursion. Since no other type is found in them
--- type, we use 'collectempty' for the default instance.
-
-instance TransformUp Char Char where transformUp = transformUpapply
-instance TransformUp Char b    where transformUp = transformUpempty
-
-instance TransformUp Int Int where transformUp = transformUpapply
-instance TransformUp Int b   where transformUp = transformUpempty
-
-instance TransformUp Float Float where transformUp = transformUpapply
-instance TransformUp Float b     where transformUp = transformUpempty
-
-instance TransformUp Double Double where transformUp = transformUpapply
-instance TransformUp Double b      where transformUp = transformUpempty
-
-instance TransformUp Bool Bool where transformUp = transformUpapply
-instance TransformUp Bool b    where transformUp = transformUpempty
-
-instance TransformUp () () where transformUp = transformUpapply
-instance TransformUp () b  where transformUp = transformUpempty
-
--- For all other types, the default instance is standard.
-
-instance TransformUp (Maybe b) (Maybe b) where transformUp = transformUpapply
-instance TransformUp b a => TransformUp (Maybe b) a
-
-instance TransformUp [b] [b] where transformUp = transformUpapply
-instance TransformUp b a => TransformUp [b] a
-
-instance TransformUp (b,c) (b,c) where transformUp = transformUpapply
-instance (TransformUp b a, TransformUp c a) => TransformUp (b,c) a
-
-instance TransformUp (b,c,d) (b,c,d) where transformUp = transformUpapply
-instance (TransformUp b a, TransformUp c a, TransformUp d a) => TransformUp (b,c,d) a
-
-instance TransformUp (b,c,d,e) (b,c,d,e) where transformUp = transformUpapply
-instance (TransformUp b a, TransformUp c a, TransformUp d a, TransformUp e a) => TransformUp (b,c,d,e) a
-
-instance TransformUp (b,c,d,e,f) (b,c,d,e,f) where transformUp = transformUpapply
-instance (TransformUp b a, TransformUp c a, TransformUp d a, TransformUp e a, TransformUp f a) => TransformUp (b,c,d,e,f) a
-
-instance TransformUp (b,c,d,e,f,g) (b,c,d,e,f,g) where transformUp = transformUpapply
-instance (TransformUp b a, TransformUp c a, TransformUp d a, TransformUp e a, TransformUp f a, TransformUp g a) => TransformUp (b,c,d,e,f,g) a
-
-instance TransformUp (b,c,d,e,f,g,h) (b,c,d,e,f,g,h) where transformUp = transformUpapply
-instance (TransformUp b a, TransformUp c a, TransformUp d a, TransformUp e a, TransformUp f a, TransformUp g a, TransformUp h a) => TransformUp (b,c,d,e,f,g,h) a
+instance (Transform' f a, Transform' g a) => Transform' (f :*: g) a where
+  bottomUp'  f (x :*: y) = bottomUp' f x :*: bottomUp' f y
+  topDown'   f (x :*: y) = topDown'  f x :*: topDown'  f y
+  bottomUpM' f (x :*: y) = liftM2 (:*:) (bottomUpM' f x) (bottomUpM' f y)
+  topDownM'  f (x :*: y) = liftM2 (:*:) (topDownM'  f x) (topDownM'  f y)
 
 --------------------------------------------------------------------------------
 
-type TW b m a = (forall a . a -> m a) -> (forall a b . (a -> b) -> m a -> m b) -> (forall a b . m (a -> b) -> m a -> m b) -> (a -> m a) -> b -> m b
+bottomUp_default :: (Generic b, Transform' (Rep b) a) => T b a
+bottomUp_default f = to . bottomUp' f . from
 
--- | The type-indexed function
+bottomUp_empty :: T b a
+bottomUp_empty _ = id
 
-class TransformUpWith' f a where
-  transformUpWith' :: TW (f x) m a
+bottomUp_apply :: (Generic a, Transform' (Rep a) a) => T a a
+bottomUp_apply f = f . bottomUp_default f
 
-instance TransformUpWith' U1 a where
-  transformUpWith' r _ _ _ U1 = r U1
-
-instance TransformUpWith b a => TransformUpWith' (K1 i b) a where
-  transformUpWith' r m a f (K1 x) = m K1 (transformUpWith r m a f x)
-
-instance TransformUpWith' f b => TransformUpWith' (M1 i c f) b where
-  transformUpWith' r m a f (M1 x) = m M1 (transformUpWith' r m a f x)
-
-instance (TransformUpWith' f b, TransformUpWith' h b) => TransformUpWith' (f :+: h) b where
-  transformUpWith' r m a f (L1 x) = m L1 (transformUpWith' r m a f x)
-  transformUpWith' r m a f (R1 x) = m R1 (transformUpWith' r m a f x)
-
-instance (TransformUpWith' f b, TransformUpWith' h b) => TransformUpWith' (f :*: h) b where
-  transformUpWith' r m a f (x :*: y) = m (:*:) (transformUpWith' r m a f x) `a` transformUpWith' r m a f y
+bottomUp_apply1 :: T a a
+bottomUp_apply1 = id
 
 --------------------------------------------------------------------------------
 
-transformUpWithdefault :: (Generic b, TransformUpWith' (Rep b) a) => TW b m a
-transformUpWithdefault r m a f = m to . transformUpWith' r m a f . from
+topDown_default :: (Generic b, Transform' (Rep b) a) => T b a
+topDown_default f = to . topDown' f . from
 
-transformUpWithapply :: TW a m a
-transformUpWithapply _ _ _ f = f
+topDown_empty :: T b a
+topDown_empty _ = id
 
-transformUpWithempty :: TW b m a
-transformUpWithempty r _ _ _ = r
+topDown_apply :: (Generic a, Transform' (Rep a) a) => T a a
+topDown_apply f = topDown_default f . f
 
---------------------------------------------------------------------------------
-
-class TransformUpWith b a where
-  transformUpWith :: TW b m a
-
-  default transformUpWith :: (Generic b, TransformUpWith' (Rep b) a) => TW b m a
-  transformUpWith = transformUpWithdefault
+topDown_apply1 :: T a a
+topDown_apply1 = id
 
 --------------------------------------------------------------------------------
 
--- Each type requires two instances.
+bottomUpM_default :: (Generic b, Transform' (Rep b) a, Monad m) => TM m b a
+bottomUpM_default f = liftM to . bottomUpM' f . from
 
--- 1. Matching - query type equals result type
+bottomUpM_empty :: Monad m => TM m b a
+bottomUpM_empty _ = return
 
--- 2. Default - query type does not equal result type
+bottomUpM_apply :: (Generic a, Transform' (Rep a) a, Monad m) => TM m a a
+bottomUpM_apply f = f <=< bottomUpM_default f
 
--- These types (mostly primitive) are the leaves of datatypes, so their default
--- instances need to stop the recursion. Since no other type is found in them
--- type, we use 'collectempty' for the default instance.
-
-instance TransformUpWith Char Char where transformUpWith = transformUpWithapply
-instance TransformUpWith Char b    where transformUpWith = transformUpWithempty
-
-instance TransformUpWith Int Int where transformUpWith = transformUpWithapply
-instance TransformUpWith Int b   where transformUpWith = transformUpWithempty
-
-instance TransformUpWith Float Float where transformUpWith = transformUpWithapply
-instance TransformUpWith Float b     where transformUpWith = transformUpWithempty
-
-instance TransformUpWith Double Double where transformUpWith = transformUpWithapply
-instance TransformUpWith Double b      where transformUpWith = transformUpWithempty
-
-instance TransformUpWith Bool Bool where transformUpWith = transformUpWithapply
-instance TransformUpWith Bool b    where transformUpWith = transformUpWithempty
-
-instance TransformUpWith () () where transformUpWith = transformUpWithapply
-instance TransformUpWith () b  where transformUpWith = transformUpWithempty
-
--- For all other types, the default instance is standard.
-
-instance TransformUpWith (Maybe b) (Maybe b) where transformUpWith = transformUpWithapply
-instance TransformUpWith b a => TransformUpWith (Maybe b) a
-
-instance TransformUpWith [b] [b] where transformUpWith = transformUpWithapply
-instance TransformUpWith b a => TransformUpWith [b] a
-
-instance TransformUpWith (b,c) (b,c) where transformUpWith = transformUpWithapply
-instance (TransformUpWith b a, TransformUpWith c a) => TransformUpWith (b,c) a
-
-instance TransformUpWith (b,c,d) (b,c,d) where transformUpWith = transformUpWithapply
-instance (TransformUpWith b a, TransformUpWith c a, TransformUpWith d a) => TransformUpWith (b,c,d) a
-
-instance TransformUpWith (b,c,d,e) (b,c,d,e) where transformUpWith = transformUpWithapply
-instance (TransformUpWith b a, TransformUpWith c a, TransformUpWith d a, TransformUpWith e a) => TransformUpWith (b,c,d,e) a
-
-instance TransformUpWith (b,c,d,e,f) (b,c,d,e,f) where transformUpWith = transformUpWithapply
-instance (TransformUpWith b a, TransformUpWith c a, TransformUpWith d a, TransformUpWith e a, TransformUpWith f a) => TransformUpWith (b,c,d,e,f) a
-
-instance TransformUpWith (b,c,d,e,f,g) (b,c,d,e,f,g) where transformUpWith = transformUpWithapply
-instance (TransformUpWith b a, TransformUpWith c a, TransformUpWith d a, TransformUpWith e a, TransformUpWith f a, TransformUpWith g a) => TransformUpWith (b,c,d,e,f,g) a
-
-instance TransformUpWith (b,c,d,e,f,g,h) (b,c,d,e,f,g,h) where transformUpWith = transformUpWithapply
-instance (TransformUpWith b a, TransformUpWith c a, TransformUpWith d a, TransformUpWith e a, TransformUpWith f a, TransformUpWith g a, TransformUpWith h a) => TransformUpWith (b,c,d,e,f,g,h) a
+bottomUpM_apply1 :: TM m a a
+bottomUpM_apply1 = id
 
 --------------------------------------------------------------------------------
 
-transformUpA :: (TransformUpWith b a, Applicative m) => (a -> m a) -> b -> m b
-transformUpA = transformUpWith pure fmap (<*>)
+topDownM_default :: (Generic b, Transform' (Rep b) a, Monad m) => TM m b a
+topDownM_default f = liftM to . topDownM' f . from
 
-transformUpM :: (TransformUpWith b a, Monad m) => (a -> m a) -> b -> m b
-transformUpM = transformUpWith return liftM ap
+topDownM_empty :: Monad m => TM m b a
+topDownM_empty _ = return
+
+topDownM_apply :: (Generic a, Transform' (Rep a) a, Monad m) => TM m a a
+topDownM_apply f = topDownM_default f <=< f
+
+topDownM_apply1 :: TM m a a
+topDownM_apply1 = id
+
+--------------------------------------------------------------------------------
+
+class TransformAlt b a where
+  bottomUpAlt  ::            T    b a
+  topDownAlt   ::            T    b a
+  bottomUpMAlt :: Monad m => TM m b a
+  topDownMAlt  :: Monad m => TM m b a
+
+instance (Generic a, Transform' (Rep a) a) => TransformAlt a a where
+  bottomUpAlt  = bottomUp_apply
+  topDownAlt   = topDown_apply
+  bottomUpMAlt = bottomUpM_apply
+  topDownMAlt  = topDownM_apply
+
+instance (Generic b, Transform' (Rep b) a) => TransformAlt b a where
+  bottomUpAlt  = bottomUp_default
+  topDownAlt   = topDown_default
+  bottomUpMAlt = bottomUpM_default
+  topDownMAlt  = topDownM_default
+
+--------------------------------------------------------------------------------
+
+class Transform b a where
+
+  bottomUp :: T b a
+
+  default bottomUp :: TransformAlt b a => T b a
+  bottomUp = bottomUpAlt
+
+  topDown :: T b a
+
+  default topDown :: TransformAlt b a => T b a
+  topDown = topDownAlt
+
+  bottomUpM :: Monad m => TM m b a
+
+  default bottomUpM :: TransformAlt b a => Monad m => TM m b a
+  bottomUpM = bottomUpMAlt
+
+  topDownM :: Monad m => TM m b a
+
+  default topDownM :: TransformAlt b a => Monad m => TM m b a
+  topDownM = topDownMAlt
+
+--------------------------------------------------------------------------------
+
+-- Primitive types:
+-- * Must use _apply1 in the matching instance
+-- * May use _empty in the fall-through instance
+
+instance Transform Char Char where
+  bottomUp  = bottomUp_apply1
+  topDown   = topDown_apply1
+  bottomUpM = bottomUpM_apply1
+  topDownM  = topDownM_apply1
+instance Transform Char a where
+  bottomUp  = bottomUp_empty
+  topDown   = topDown_empty
+  bottomUpM = bottomUpM_empty
+  topDownM  = topDownM_empty
+
+instance Transform Float Float where
+  bottomUp  = bottomUp_apply1
+  topDown   = topDown_apply1
+  bottomUpM = bottomUpM_apply1
+  topDownM  = topDownM_apply1
+instance Transform Float a where
+  bottomUp  = bottomUp_empty
+  topDown   = topDown_empty
+  bottomUpM = bottomUpM_empty
+  topDownM  = topDownM_empty
+
+instance Transform Double Double where
+  bottomUp  = bottomUp_apply1
+  topDown   = topDown_apply1
+  bottomUpM = bottomUpM_apply1
+  topDownM  = topDownM_apply1
+instance Transform Double a where
+  bottomUp  = bottomUp_empty
+  topDown   = topDown_empty
+  bottomUpM = bottomUpM_empty
+  topDownM  = topDownM_empty
+
+instance Transform Int Int where
+  bottomUp  = bottomUp_apply1
+  topDown   = topDown_apply1
+  bottomUpM = bottomUpM_apply1
+  topDownM  = topDownM_apply1
+instance Transform Int a where
+  bottomUp  = bottomUp_empty
+  topDown   = topDown_empty
+  bottomUpM = bottomUpM_empty
+  topDownM  = topDownM_empty
+
+--------------------------------------------------------------------------------
+
+-- Non-recursive datatypes referencing no other types:
+-- * May use _apply1 in the matching instance
+-- * May use _empty in the fall-through instance
+
+instance Transform Bool Bool where
+  bottomUp  = bottomUp_apply1
+  topDown   = topDown_apply1
+  bottomUpM = bottomUpM_apply1
+  topDownM  = topDownM_apply1
+instance Transform Bool a where
+  bottomUp  = bottomUp_empty
+  topDown   = topDown_empty
+  bottomUpM = bottomUpM_empty
+  topDownM  = topDownM_empty
+
+instance Transform () () where
+  bottomUp  = bottomUp_apply1
+  topDown   = topDown_apply1
+  bottomUpM = bottomUpM_apply1
+  topDownM  = topDownM_apply1
+instance Transform () a where
+  bottomUp  = bottomUp_empty
+  topDown   = topDown_empty
+  bottomUpM = bottomUpM_empty
+  topDownM  = topDownM_empty
+
+--------------------------------------------------------------------------------
+
+-- Non-recursive datatypes referencing other types:
+-- * May use _apply1 in the matching instance
+-- * Must use _default the fall-through instance
+
+instance Transform (Maybe a) (Maybe a) where
+  bottomUp  = bottomUp_apply1
+  topDown   = topDown_apply1
+  bottomUpM = bottomUpM_apply1
+  topDownM  = topDownM_apply1
+instance Transform b a => Transform (Maybe b) a
+
+instance Transform (Either b c) (Either b c) where
+  bottomUp  = bottomUp_apply1
+  topDown   = topDown_apply1
+  bottomUpM = bottomUpM_apply1
+  topDownM  = topDownM_apply1
+instance (Transform b a, Transform c a) => Transform (Either b c) a
+
+instance Transform (b,c) (b,c) where
+  bottomUp  = bottomUp_apply1
+  topDown   = topDown_apply1
+  bottomUpM = bottomUpM_apply1
+  topDownM  = topDownM_apply1
+instance (Transform b a, Transform c a) => Transform (b,c) a
+
+instance Transform (b,c,d) (b,c,d) where
+  bottomUp  = bottomUp_apply1
+  topDown   = topDown_apply1
+  bottomUpM = bottomUpM_apply1
+  topDownM  = topDownM_apply1
+instance (Transform b a, Transform c a, Transform d a) => Transform (b,c,d) a
+
+instance Transform (b,c,d,e) (b,c,d,e) where
+  bottomUp  = bottomUp_apply1
+  topDown   = topDown_apply1
+  bottomUpM = bottomUpM_apply1
+  topDownM  = topDownM_apply1
+instance (Transform b a, Transform c a, Transform d a, Transform e a) => Transform (b,c,d,e) a
+
+instance Transform (b,c,d,e,f) (b,c,d,e,f) where
+  bottomUp  = bottomUp_apply1
+  topDown   = topDown_apply1
+  bottomUpM = bottomUpM_apply1
+  topDownM  = topDownM_apply1
+instance (Transform b a, Transform c a, Transform d a, Transform e a, Transform f a) => Transform (b,c,d,e,f) a
+
+instance Transform (b,c,d,e,f,g) (b,c,d,e,f,g) where
+  bottomUp  = bottomUp_apply1
+  topDown   = topDown_apply1
+  bottomUpM = bottomUpM_apply1
+  topDownM  = topDownM_apply1
+instance (Transform b a, Transform c a, Transform d a, Transform e a, Transform f a, Transform g a) => Transform (b,c,d,e,f,g) a
+
+instance Transform (b,c,d,e,f,g,h) (b,c,d,e,f,g,h) where
+  bottomUp  = bottomUp_apply1
+  topDown   = topDown_apply1
+  bottomUpM = bottomUpM_apply1
+  topDownM  = topDownM_apply1
+instance (Transform b a, Transform c a, Transform d a, Transform e a, Transform f a, Transform g a, Transform h a) => Transform (b,c,d,e,f,g,h) a
+
+--------------------------------------------------------------------------------
+
+-- Recursive datatypes:
+-- * Must use _apply in the matching instance
+-- * Must use _default the fall-through instance
+
+instance Transform a [a] => Transform [a] [a]
+instance Transform b a => Transform [b] a
 
