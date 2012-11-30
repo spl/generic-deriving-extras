@@ -5,6 +5,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverlappingInstances #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE RankNTypes #-}
 
 --------------------------------------------------------------------------------
 
@@ -45,16 +46,16 @@ import Control.Monad (liftM, liftM2, (<=<))
 
 --------------------------------------------------------------------------------
 
-type T    b a = (a ->   a) -> b ->   b
-type TM m b a = (a -> m a) -> b -> m b
+type T  b a =                       (a ->   a) -> b ->   b
+type TM b a = forall m . Monad m => (a -> m a) -> b -> m b
 
 --------------------------------------------------------------------------------
 
 class Transform' f a where
-  bottomUp'  ::            T    (f x) a
-  topDown'   ::            T    (f x) a
-  bottomUpM' :: Monad m => TM m (f x) a
-  topDownM'  :: Monad m => TM m (f x) a
+  bottomUp'  :: T  (f x) a
+  topDown'   :: T  (f x) a
+  bottomUpM' :: TM (f x) a
+  topDownM'  :: TM (f x) a
 
 instance Transform' U1 a where
   bottomUp'  _ U1 = U1
@@ -96,7 +97,7 @@ bottomUp_apply, topDown_apply :: (Generic a, Transform' (Rep a) a) => T a a
 bottomUp_apply f = f . bottomUp_default f
 topDown_apply  f = topDown_default f . f
 
-bottomUpM_apply, topDownM_apply :: (Generic a, Transform' (Rep a) a, Monad m) => TM m a a
+bottomUpM_apply, topDownM_apply :: (Generic a, Transform' (Rep a) a) => TM a a
 bottomUpM_apply f = f <=< bottomUpM_default f
 topDownM_apply  f = topDownM_default f <=< f
 
@@ -106,7 +107,7 @@ bottomUp_apply1, topDown_apply1 :: T a a
 bottomUp_apply1 = id
 topDown_apply1  = id
 
-bottomUpM_apply1, topDownM_apply1 :: TM m a a
+bottomUpM_apply1, topDownM_apply1 :: TM a a
 bottomUpM_apply1 = id
 topDownM_apply1  = id
 
@@ -116,7 +117,7 @@ bottomUp_default, topDown_default :: (Generic b, Transform' (Rep b) a) => T b a
 bottomUp_default f = to . bottomUp' f . from
 topDown_default  f = to . topDown'  f . from
 
-bottomUpM_default, topDownM_default :: (Generic b, Transform' (Rep b) a, Monad m) => TM m b a
+bottomUpM_default, topDownM_default :: (Generic b, Transform' (Rep b) a) => TM b a
 bottomUpM_default f = liftM to . bottomUpM' f . from
 topDownM_default  f = liftM to . topDownM'  f . from
 
@@ -126,17 +127,17 @@ bottomUp_empty, topDown_empty :: T b a
 bottomUp_empty _ = id
 topDown_empty  _ = id
 
-bottomUpM_empty, topDownM_empty :: Monad m => TM m b a
+bottomUpM_empty, topDownM_empty :: TM b a
 bottomUpM_empty _ = return
 topDownM_empty  _ = return
 
 --------------------------------------------------------------------------------
 
 class TransformAlt b a where
-  bottomUpAlt  ::            T    b a
-  topDownAlt   ::            T    b a
-  bottomUpMAlt :: Monad m => TM m b a
-  topDownMAlt  :: Monad m => TM m b a
+  bottomUpAlt  :: T  b a
+  topDownAlt   :: T  b a
+  bottomUpMAlt :: TM b a
+  topDownMAlt  :: TM b a
 
 instance (Generic a, Transform' (Rep a) a) => TransformAlt a a where
   bottomUpAlt  = bottomUp_apply
@@ -164,14 +165,14 @@ class Transform b a where
   default topDown :: TransformAlt b a => T b a
   topDown = topDownAlt
 
-  bottomUpM :: Monad m => TM m b a
+  bottomUpM :: TM b a
 
-  default bottomUpM :: TransformAlt b a => Monad m => TM m b a
+  default bottomUpM :: TransformAlt b a => TM b a
   bottomUpM = bottomUpMAlt
 
-  topDownM :: Monad m => TM m b a
+  topDownM :: TM b a
 
-  default topDownM :: TransformAlt b a => Monad m => TM m b a
+  default topDownM :: TransformAlt b a => TM b a
   topDownM = topDownMAlt
 
 --------------------------------------------------------------------------------
