@@ -9,25 +9,33 @@
 --------------------------------------------------------------------------------
 
 module Generics.Deriving.Transform (
+  -- *
   T,
   TM,
+  -- *
   Transform(..),
-  bottomUp_default,
-  bottomUp_empty,
+  -- *
+  -- **
   bottomUp_apply,
-  bottomUp_apply1,
-  topDown_default,
-  topDown_empty,
   topDown_apply,
-  topDown_apply1,
-  bottomUpM_default,
-  bottomUpM_empty,
   bottomUpM_apply,
-  bottomUpM_apply1,
-  topDownM_default,
-  topDownM_empty,
   topDownM_apply,
+  -- **
+  bottomUp_apply1,
+  topDown_apply1,
+  bottomUpM_apply1,
   topDownM_apply1,
+  -- *
+  -- **
+  bottomUp_default,
+  topDown_default,
+  bottomUpM_default,
+  topDownM_default,
+  -- **
+  bottomUp_empty,
+  topDown_empty,
+  bottomUpM_empty,
+  topDownM_empty,
 ) where
 
 --------------------------------------------------------------------------------
@@ -84,59 +92,43 @@ instance (Transform' f a, Transform' g a) => Transform' (f :*: g) a where
 
 --------------------------------------------------------------------------------
 
-bottomUp_default :: (Generic b, Transform' (Rep b) a) => T b a
-bottomUp_default f = to . bottomUp' f . from
-
-bottomUp_empty :: T b a
-bottomUp_empty _ = id
-
-bottomUp_apply :: (Generic a, Transform' (Rep a) a) => T a a
+bottomUp_apply, topDown_apply :: (Generic a, Transform' (Rep a) a) => T a a
 bottomUp_apply f = f . bottomUp_default f
+topDown_apply  f = topDown_default f . f
 
-bottomUp_apply1 :: T a a
-bottomUp_apply1 = id
-
---------------------------------------------------------------------------------
-
-topDown_default :: (Generic b, Transform' (Rep b) a) => T b a
-topDown_default f = to . topDown' f . from
-
-topDown_empty :: T b a
-topDown_empty _ = id
-
-topDown_apply :: (Generic a, Transform' (Rep a) a) => T a a
-topDown_apply f = topDown_default f . f
-
-topDown_apply1 :: T a a
-topDown_apply1 = id
-
---------------------------------------------------------------------------------
-
-bottomUpM_default :: (Generic b, Transform' (Rep b) a, Monad m) => TM m b a
-bottomUpM_default f = liftM to . bottomUpM' f . from
-
-bottomUpM_empty :: Monad m => TM m b a
-bottomUpM_empty _ = return
-
-bottomUpM_apply :: (Generic a, Transform' (Rep a) a, Monad m) => TM m a a
+bottomUpM_apply, topDownM_apply :: (Generic a, Transform' (Rep a) a, Monad m) => TM m a a
 bottomUpM_apply f = f <=< bottomUpM_default f
-
-bottomUpM_apply1 :: TM m a a
-bottomUpM_apply1 = id
+topDownM_apply  f = topDownM_default f <=< f
 
 --------------------------------------------------------------------------------
 
-topDownM_default :: (Generic b, Transform' (Rep b) a, Monad m) => TM m b a
-topDownM_default f = liftM to . topDownM' f . from
+bottomUp_apply1, topDown_apply1 :: T a a
+bottomUp_apply1 = id
+topDown_apply1  = id
 
-topDownM_empty :: Monad m => TM m b a
-topDownM_empty _ = return
+bottomUpM_apply1, topDownM_apply1 :: TM m a a
+bottomUpM_apply1 = id
+topDownM_apply1  = id
 
-topDownM_apply :: (Generic a, Transform' (Rep a) a, Monad m) => TM m a a
-topDownM_apply f = topDownM_default f <=< f
+--------------------------------------------------------------------------------
 
-topDownM_apply1 :: TM m a a
-topDownM_apply1 = id
+bottomUp_default, topDown_default :: (Generic b, Transform' (Rep b) a) => T b a
+bottomUp_default f = to . bottomUp' f . from
+topDown_default  f = to . topDown'  f . from
+
+bottomUpM_default, topDownM_default :: (Generic b, Transform' (Rep b) a, Monad m) => TM m b a
+bottomUpM_default f = liftM to . bottomUpM' f . from
+topDownM_default  f = liftM to . topDownM'  f . from
+
+--------------------------------------------------------------------------------
+
+bottomUp_empty, topDown_empty :: T b a
+bottomUp_empty _ = id
+topDown_empty  _ = id
+
+bottomUpM_empty, topDownM_empty :: Monad m => TM m b a
+bottomUpM_empty _ = return
+topDownM_empty  _ = return
 
 --------------------------------------------------------------------------------
 
