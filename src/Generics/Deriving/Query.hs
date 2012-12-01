@@ -12,6 +12,7 @@ module Generics.Deriving.Query (
   Query(..),
   mquery,
   collect,
+  collectM,
   querydefault,
   queryapply,
   queryempty,
@@ -22,6 +23,7 @@ module Generics.Deriving.Query (
 import GHC.Generics
 import Data.Monoid (Monoid(mempty, mappend))
 import Control.Applicative (pure, Alternative(empty, (<|>)))
+import Control.Monad (MonadPlus(..))
 
 --------------------------------------------------------------------------------
 
@@ -130,4 +132,7 @@ mquery = query mempty mappend
 
 collect :: (Query c a, Alternative f) => c -> f a
 collect = query empty (<|>) pure
+
+collectM :: (Query c a, MonadPlus m) => c -> m a
+collectM = query mzero mplus return
 
