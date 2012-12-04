@@ -1,6 +1,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE DataKinds #-}
 
 --------------------------------------------------------------------------------
 
@@ -29,8 +30,6 @@ module Generics.Deriving.Zipper.Trace (
   modify,
   -- *
   Loc,
-  Empty,
-  (:<:),
   -- *
   Generic,
   Typeable,
@@ -94,36 +93,36 @@ z_check = maybe z_error return
 
 --------------------------------------------------------------------------------
 
-up :: (Zipper a, Zipper b, Monad m) => Loc a r (b :<: c) -> ZipperT m (Loc b r c)
+up :: (Zipper a, Zipper b, Monad m) => Loc a r (b ': c) -> ZipperT m (Loc b r c)
 up loc = do
   z_log_up
   return (Base.up loc)
 
-downl :: (Zipper a, Zipper b, Monad m) => Dir -> proxy b -> String -> Loc a r c -> ZipperT m (Loc b r (a :<: c))
+downl :: (Zipper a, Zipper b, Monad m) => Dir -> proxy b -> String -> Loc a r c -> ZipperT m (Loc b r (a ': c))
 downl dir _ msg loc = do
   z_log (Down dir msg)
   z_check (Base.down dir loc)
 
-downu :: (Zipper a, Zipper b, Monad m) => Dir -> proxy b -> Loc a r c -> ZipperT m (Loc b r (a :<: c))
+downu :: (Zipper a, Zipper b, Monad m) => Dir -> proxy b -> Loc a r c -> ZipperT m (Loc b r (a ': c))
 downu dir proxy = downl dir proxy "<unknown>"
 
-down :: (Zipper a, Zipper b, Show (proxy b), Monad m) => Dir -> proxy b -> Loc a r c -> ZipperT m (Loc b r (a :<: c))
+down :: (Zipper a, Zipper b, Show (proxy b), Monad m) => Dir -> proxy b -> Loc a r c -> ZipperT m (Loc b r (a ': c))
 down dir proxy loc = downl dir proxy (show proxy) loc
 
-movel :: (Zipper a, Zipper b, Monad m) => Dir -> proxy b -> String -> Loc a r (c :<: cs) -> ZipperT m (Loc b r (c :<: cs))
+movel :: (Zipper a, Zipper b, Monad m) => Dir -> proxy b -> String -> Loc a r (c ': cs) -> ZipperT m (Loc b r (c ': cs))
 movel dir _ msg loc = do
   z_log (Move dir msg)
   z_check (Base.move dir loc)
 
-moveu :: (Zipper a, Zipper b, Monad m) => Dir -> proxy b -> Loc a r (c :<: cs) -> ZipperT m (Loc b r (c :<: cs))
+moveu :: (Zipper a, Zipper b, Monad m) => Dir -> proxy b -> Loc a r (c ': cs) -> ZipperT m (Loc b r (c ': cs))
 moveu dir proxy loc = movel dir proxy "<unknown>" loc
 
-move :: (Zipper a, Zipper b, Show (proxy b), Monad m) => Dir -> proxy b -> Loc a r (c :<: cs) -> ZipperT m (Loc b r (c :<: cs))
+move :: (Zipper a, Zipper b, Show (proxy b), Monad m) => Dir -> proxy b -> Loc a r (c ': cs) -> ZipperT m (Loc b r (c ': cs))
 move dir proxy loc = movel dir proxy (show proxy) loc
 
 --------------------------------------------------------------------------------
 
-enter :: (Zipper a, Monad m) => a -> ZipperT m (Loc a a Empty)
+enter :: (Zipper a, Monad m) => a -> ZipperT m (Loc a a '[])
 enter = return . Base.enter
 
 leave :: (Zipper a, Monad m) => Loc a r c -> ZipperT m r
