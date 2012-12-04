@@ -52,30 +52,30 @@ dir R _ g = g
 class Zipper' f where
   fill  :: Typeable a => Ctx f p -> a -> Maybe (f p)
   split :: Typeable a => Dir -> f p -> Maybe (a, Ctx f p)
-  creep :: (Typeable a, Typeable b) => Dir -> Ctx f p -> a -> Maybe (b, Ctx f p)
+  shift :: (Typeable a, Typeable b) => Dir -> Ctx f p -> a -> Maybe (b, Ctx f p)
 
 instance Zipper' U1 where
   fill = error "impossible"
   split _ _ = Nothing
-  creep _ _ _ = Nothing
+  shift _ _ _ = Nothing
 
 instance Typeable a => Zipper' (K1 i a) where
   fill CK x = K1 <$> cast x
   split _ (K1 x) = flip (,) CK <$> cast x
-  creep _ _ _ = Nothing
+  shift _ _ _ = Nothing
 
 instance Zipper' f => Zipper' (M1 i c f) where
   fill (CM c) x = M1 <$> fill c x
   split d (M1 x) = fmap CM <$> split d x
-  creep d (CM c) x = fmap CM <$> creep d c x
+  shift d (CM c) x = fmap CM <$> shift d c x
 
 instance (Zipper' f, Zipper' g) => Zipper' (f :+: g) where
   fill (CL l) x = L1 <$> fill l x
   fill (CR r) x = R1 <$> fill r x
   split d (L1 x) = fmap CL <$> split d x
   split d (R1 x) = fmap CR <$> split d x
-  creep d (CL c) x = fmap CL <$> creep d c x
-  creep d (CR c) y = fmap CR <$> creep d c y
+  shift d (CL c) x = fmap CL <$> shift d c x
+  shift d (CR c) y = fmap CR <$> shift d c y
 
 instance (Zipper' f, Zipper' g) => Zipper' (f :*: g) where
   fill (C1 y c) x = (:*: y) <$> fill c x
@@ -83,11 +83,11 @@ instance (Zipper' f, Zipper' g) => Zipper' (f :*: g) where
   split d (x :*: y) =
     dir d (<|>) (flip (<|>)) (fmap (C1 y) <$> split d x)
                              (fmap (C2 x) <$> split d y)
-  creep d (C1 y c) x =
-    dir d const (<|>) (fmap (C1 y) <$> creep d c x)
+  shift d (C1 y c) x =
+    dir d const (<|>) (fmap (C1 y) <$> shift d c x)
                       (second . C2 <$> fill c x <*> split L y)
-  creep d (C2 x c) y =
-    dir d (<|>) const (fmap (C2 x) <$> creep d c y)
+  shift d (C2 x c) y =
+    dir d (<|>) const (fmap (C2 x) <$> shift d c y)
                       (second . C1 <$> fill c y <*> split R x)
 
 --------------------------------------------------------------------------------
@@ -120,7 +120,7 @@ down :: (Zipper a, Zipper b) => Dir -> Loc a r c -> Maybe (Loc b r (a ': c))
 down d (Loc h cs) = fromPair cs <$> split d (from h)
 
 move :: (Zipper a, Zipper b) => Dir -> Loc a r (c ': cs) -> Maybe (Loc b r (c ': cs))
-move d (Loc h (CCons c cs)) = fromPair cs <$> creep d c h
+move d (Loc h (CCons c cs)) = fromPair cs <$> shift d c h
 
 --------------------------------------------------------------------------------
 
