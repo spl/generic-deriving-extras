@@ -3,6 +3,7 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE DataKinds #-}
 
 --------------------------------------------------------------------------------
 
@@ -22,8 +23,6 @@ module Generics.Deriving.Zipper.Base (
   modify,
   -- *
   Loc,
-  Empty,
-  (:<:),
   -- *
   Generic,
   Typeable,
@@ -93,24 +92,19 @@ instance (Zipper' f, Zipper' g) => Zipper' (f :*: g) where
 
 --------------------------------------------------------------------------------
 
-data Empty
-data c :<: cs
-
-infixr 5 :<:
-
 data Contexts hole root tail where
-  CNil   :: Contexts hole hole Empty
+  CNil   :: Contexts hole hole '[]
   CCons  :: Zipper parent
          => Ctx (Rep parent) p
          -> Contexts parent root cs
-         -> Contexts hole root (parent :<: cs)
+         -> Contexts hole root (parent ': cs)
 
 data Loc foc root c = Loc foc (Contexts foc root c)
 
 fromOne :: Generic a => Contexts a r c -> Rep a x -> Loc a r c
 fromOne cs foc = Loc (to foc) cs
 
-fromPair :: Zipper a => Contexts a r cs -> (foc, Ctx (Rep a) p) -> Loc foc r (a :<: cs)
+fromPair :: Zipper a => Contexts a r cs -> (foc, Ctx (Rep a) p) -> Loc foc r (a ': cs)
 fromPair cs (foc, c) = Loc foc (CCons c cs)
 
 --------------------------------------------------------------------------------
@@ -119,18 +113,18 @@ class (Generic a, Zipper' (Rep a), Typeable a) => Zipper a
 
 --------------------------------------------------------------------------------
 
-up :: (Zipper a, Zipper b) => Loc a r (b :<: c) -> Loc b r c
+up :: (Zipper a, Zipper b) => Loc a r (b ': c) -> Loc b r c
 up (Loc foc (CCons c cs)) = fromJust (fromOne cs <$> fill c foc)
 
-down :: (Zipper a, Zipper b) => Dir -> Loc a r c -> Maybe (Loc b r (a :<: c))
+down :: (Zipper a, Zipper b) => Dir -> Loc a r c -> Maybe (Loc b r (a ': c))
 down d (Loc h cs) = fromPair cs <$> split d (from h)
 
-move :: (Zipper a, Zipper b) => Dir -> Loc a r (c :<: cs) -> Maybe (Loc b r (c :<: cs))
+move :: (Zipper a, Zipper b) => Dir -> Loc a r (c ': cs) -> Maybe (Loc b r (c ': cs))
 move d (Loc h (CCons c cs)) = fromPair cs <$> creep d c h
 
 --------------------------------------------------------------------------------
 
-enter :: Zipper a => a -> Loc a a Empty
+enter :: Zipper a => a -> Loc a a '[]
 enter foc = Loc foc CNil
 
 leave :: Zipper a => Loc a r c -> r
