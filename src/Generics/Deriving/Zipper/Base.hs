@@ -15,9 +15,7 @@ module Generics.Deriving.Zipper.Base (
   -- *
   up,
   down,
-  downo,
   move,
-  moveo,
   -- *
   get,
   set,
@@ -138,17 +136,11 @@ class (Generic a, Zipper' (Rep a), Typeable a) => Zipper a
 up :: (Zipper a, Zipper b) => Loc a r (b :<: c) -> Loc b r c
 up (Loc foc (CCons c cs)) = fromJust (fromOne cs <$> fill c foc)
 
-downo :: (Zipper a, Zipper b) => Dir -> Loc a r c -> Maybe (Loc b r (a :<: c))
-downo d (Loc h cs) = fromPair cs <$> split d (from h)
+down :: (Zipper a, Zipper b) => Dir -> Loc a r c -> Maybe (Loc b r (a :<: c))
+down d (Loc h cs) = fromPair cs <$> split d (from h)
 
-down :: Zipper a => Dir -> Loc a r c -> Maybe (Loc a r (a :<: c))
-down = downo
-
-moveo :: (Zipper a, Zipper b) => Dir -> Loc a r (c :<: cs) -> Maybe (Loc b r (c :<: cs))
-moveo d (Loc h (CCons c cs)) = fromPair cs <$> creep d c h
-
-move :: Zipper a => Dir -> Loc a r (c :<: cs) -> Maybe (Loc a r (c :<: cs))
-move = moveo
+move :: (Zipper a, Zipper b) => Dir -> Loc a r (c :<: cs) -> Maybe (Loc b r (c :<: cs))
+move d (Loc h (CCons c cs)) = fromPair cs <$> creep d c h
 
 --------------------------------------------------------------------------------
 
