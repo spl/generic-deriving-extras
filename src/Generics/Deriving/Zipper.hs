@@ -28,19 +28,12 @@ module Generics.Deriving.Zipper (
 --------------------------------------------------------------------------------
 
 import GHC.Generics
+import Generics.Deriving.Util (Dir(..), dir)
 import Generics.Deriving.Zipper.Context
 
 import Control.Arrow (second)
 import Control.Applicative ((<$>), (<*>), (<|>))
 import Data.Maybe (fromJust)
-
---------------------------------------------------------------------------------
-
-data Dir = L | R deriving (Show, Eq)
-
-dir :: Dir -> a -> a -> a
-dir L f _ = f
-dir R _ g = g
 
 --------------------------------------------------------------------------------
 

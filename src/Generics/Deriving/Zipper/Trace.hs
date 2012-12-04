@@ -37,6 +37,7 @@ module Generics.Deriving.Zipper.Trace (
 
 --------------------------------------------------------------------------------
 
+import Generics.Deriving.Util (Dir(..), dir)
 import Generics.Deriving.Zipper.Base hiding (enter, leave, up, down, move, get, set, modify)
 import qualified Generics.Deriving.Zipper.Base as Base
 
