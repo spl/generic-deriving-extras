@@ -102,7 +102,7 @@ up loc = do
 downl :: (Zipper a, Zipper b, Monad m) => Dir -> proxy b -> String -> Loc a r c -> ZipperT m (Loc b r (a :<: c))
 downl dir _ msg loc = do
   z_log (Down dir msg)
-  z_check (Base.downo dir loc)
+  z_check (Base.down dir loc)
 
 downu :: (Zipper a, Zipper b, Monad m) => Dir -> proxy b -> Loc a r c -> ZipperT m (Loc b r (a :<: c))
 downu dir proxy = downl dir proxy "<unknown>"
@@ -113,7 +113,7 @@ down dir proxy loc = downl dir proxy (show proxy) loc
 movel :: (Zipper a, Zipper b, Monad m) => Dir -> proxy b -> String -> Loc a r (c :<: cs) -> ZipperT m (Loc b r (c :<: cs))
 movel dir _ msg loc = do
   z_log (Move dir msg)
-  z_check (Base.moveo dir loc)
+  z_check (Base.move dir loc)
 
 moveu :: (Zipper a, Zipper b, Monad m) => Dir -> proxy b -> Loc a r (c :<: cs) -> ZipperT m (Loc b r (c :<: cs))
 moveu dir proxy loc = movel dir proxy "<unknown>" loc
