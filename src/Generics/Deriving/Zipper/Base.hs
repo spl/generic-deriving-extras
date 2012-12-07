@@ -13,14 +13,19 @@ module Generics.Deriving.Zipper.Base (
   -- *
   enter,
   leave,
+  leaveM,
   -- *
   up,
+  upM,
   down,
   move,
   -- *
   get,
+  getM,
   set,
+  setM,
   modify,
+  modifyM,
   -- *
   Loc,
   -- *
@@ -109,6 +114,9 @@ class (Generic a, Zipper' (Rep a), Typeable a) => Zipper a
 up :: (Zipper a, Zipper b) => Loc a r (b ': c) -> Loc b r c
 up (Loc foc (CCons c cs)) = fromJust (fromOne cs <$> fill c foc)
 
+upM :: (Monad m, Zipper a, Zipper b) => Loc a r (b ': c) -> m (Loc b r c)
+upM = return . up
+
 down :: (Zipper a, Zipper b) => Dir -> Loc a r c -> Maybe (Loc b r (a ': c))
 down d (Loc h cs) = fromPair cs <$> split d (from h)
 
@@ -124,16 +132,28 @@ leave :: Zipper a => Loc a r c -> r
 leave (Loc f CNil) = f
 leave loc@(Loc _ (CCons {})) = leave (up loc)
 
+leaveM :: (Monad m, Zipper a) => Loc a r c -> m r
+leaveM = return . leave
+
 --------------------------------------------------------------------------------
 
 get :: Loc a r c -> a
 get (Loc foc _) = foc
 
+getM :: Monad m => Loc a r c -> m a
+getM = return . get
+
 set :: a -> Loc a r c -> Loc a r c
 set foc (Loc _ ctxs) = Loc foc ctxs
 
+setM :: Monad m => a -> Loc a r c -> m (Loc a r c)
+setM foc = return . set foc
+
 modify :: (a -> a) -> Loc a r c -> Loc a r c
 modify f (Loc foc ctxs) = Loc (f foc) ctxs
+
+modifyM :: Monad m => (a -> a) -> Loc a r c -> m (Loc a r c)
+modifyM f = return . modify f
 
 --------------------------------------------------------------------------------
 

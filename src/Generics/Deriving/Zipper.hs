@@ -15,14 +15,19 @@ module Generics.Deriving.Zipper (
   -- *
   enter,
   leave,
+  leaveM,
   -- *
   up,
+  upM,
   down,
   move,
   -- *
   get,
+  getM,
   set,
+  setM,
   modify,
+  modifyM,
 ) where
 
 --------------------------------------------------------------------------------
@@ -92,12 +97,16 @@ data Loc a where
 
 class (Generic a, Zipper' (Rep a) a) => Zipper a
 
-up   :: Loc a -> Loc a
-down :: Dir -> Loc a -> Maybe (Loc a)
-move :: Dir -> Loc a -> Maybe (Loc a)
+up :: Loc a -> Loc a
+up (Loc x (c:cs)) = Loc (to (fromJust (fill c x))) cs
 
-up     (Loc x (c:cs)) = Loc (to (fromJust (fill c x))) cs
+upM :: Monad m => Loc a -> m (Loc a)
+upM = return . up
+
+down :: Dir -> Loc a -> Maybe (Loc a)
 down d (Loc h cs)     = (\(x, c) -> Loc x (c:cs)) <$> split d (from h)
+
+move :: Dir -> Loc a -> Maybe (Loc a)
 move d (Loc h (c:cs)) = (\(x, c) -> Loc x (c:cs)) <$> shift d c h
 
 --------------------------------------------------------------------------------
@@ -109,16 +118,28 @@ leave :: Loc a -> a
 leave (Loc x []) = x
 leave loc        = leave (up loc)
 
+leaveM :: Monad m => Loc a -> m a
+leaveM = return . leave
+
 --------------------------------------------------------------------------------
 
 get :: Loc a -> a
 get (Loc x _) = x
 
+getM :: Monad m => Loc a -> m a
+getM = return . get
+
 set :: a -> Loc a -> Loc a
 set x (Loc _ cs) = Loc x cs
 
+setM :: Monad m => a -> Loc a -> m (Loc a)
+setM x = return . set x
+
 modify :: (a -> a) -> Loc a -> Loc a
 modify f (Loc x cs) = Loc (f x) cs
+
+modifyM :: Monad m => (a -> a) -> Loc a -> m (Loc a)
+modifyM f = return . modify f
 
 --------------------------------------------------------------------------------
 
