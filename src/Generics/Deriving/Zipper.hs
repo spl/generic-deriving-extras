@@ -64,28 +64,28 @@ instance Zipper' (K1 i a) b where
 
 instance Zipper' f a => Zipper' (M1 i c f) a where
   fill (CM c) x = M1 <$> fill c x
-  split d (M1 x) = fmap CM <$> split d x
-  shift d (CM c) x = fmap CM <$> shift d c x
+  split d (M1 x) = second CM <$> split d x
+  shift d (CM c) x = second CM <$> shift d c x
 
 instance (Zipper' f a, Zipper' g a) => Zipper' (f :+: g) a where
   fill (CL l) x = L1 <$> fill l x
   fill (CR r) x = R1 <$> fill r x
-  split d (L1 x) = fmap CL <$> split d x
-  split d (R1 x) = fmap CR <$> split d x
-  shift d (CL c) x = fmap CL <$> shift d c x
-  shift d (CR c) y = fmap CR <$> shift d c y
+  split d (L1 x) = second CL <$> split d x
+  split d (R1 x) = second CR <$> split d x
+  shift d (CL c) x = second CL <$> shift d c x
+  shift d (CR c) y = second CR <$> shift d c y
 
 instance (Zipper' f a, Zipper' g a) => Zipper' (f :*: g) a where
   fill (C1 y c) x = (:*: y) <$> fill c x
   fill (C2 x c) y = (x :*:) <$> fill c y
   split d (x :*: y) =
-    dir d (<|>) (flip (<|>)) (fmap (C1 y) <$> split d x)
-                             (fmap (C2 x) <$> split d y)
+    dir d (<|>) (flip (<|>)) (second (C1 y) <$> split d x)
+                             (second (C2 x) <$> split d y)
   shift d (C1 y c) x =
-    dir d const (<|>) (fmap (C1 y) <$> shift d c x)
+    dir d const (<|>) (second (C1 y) <$> shift d c x)
                       (second . C2 <$> fill c x <*> split L y)
   shift d (C2 x c) y =
-    dir d (<|>) const (fmap (C2 x) <$> shift d c y)
+    dir d (<|>) const (second (C2 x) <$> shift d c y)
                       (second . C1 <$> fill c y <*> split R x)
 
 --------------------------------------------------------------------------------
