@@ -34,17 +34,18 @@ import Generics.Deriving.Zipper1.Context
 
 type family Alg1 (f :: * -> *) r
 
-type instance Alg1 U1                      r = r
-type instance Alg1 (K1 i a)                r = a -> r
-type instance Alg1 (M1 i c f)              r = Alg1 f r
-type instance Alg1 Par1                    r = r -> r
-type instance Alg1 (Rec1 f)                r = Either (f r) r -> r
-type instance Alg1 (f :+: g)               r = (Alg1 f r, Alg1 g r)
-type instance Alg1 (M1 i c (K1 j a) :*: g) r = a -> Alg1 g r
-type instance Alg1 (M1 i c Par1 :*: g)     r = r -> Alg1 g r
-type instance Alg1 (M1 i c (Rec1 f) :*: g) r = Either (f r) r -> Alg1 g r
-type instance Alg1 ((f :*: g) :*: h)       r = Alg1 (f :*: (g :*: h)) r
--- type instance Alg1 (f :.: Par1)            r =
+type instance Alg1 U1                             r = r
+type instance Alg1 (K1 i a)                       r = a -> r
+type instance Alg1 (M1 i c f)                     r = Alg1 f r
+type instance Alg1 Par1                           r = r -> r
+type instance Alg1 (Rec1 f)                       r = Either (f r) r -> r
+type instance Alg1 (f :.: Rec1 g)                 r = Either (f (g r)) (f r) -> r
+type instance Alg1 (f :+: g)                      r = (Alg1 f r, Alg1 g r)
+type instance Alg1 (M1 i c (K1 j a) :*: g)        r = a -> Alg1 g r
+type instance Alg1 (M1 i c Par1 :*: g)            r = r -> Alg1 g r
+type instance Alg1 (M1 i c (Rec1 f) :*: g)        r = Either (f r) r -> Alg1 g r
+type instance Alg1 (M1 i c (f :.: Rec1 g) :*: h)  r = Either (f (g r)) (f r) -> Alg1 h r
+type instance Alg1 ((f :*: g) :*: h)              r = Alg1 (f :*: (g :*: h)) r
 
 --------------------------------------------------------------------------------
 
@@ -71,6 +72,12 @@ instance (Generic1 t, Fold1' (Rep1 t) t) => Fold1' (Rec1 t) t where
 instance Fold1' (Rec1 f) t where
   apply1' _ _ alg (Rec1 x) = alg (Left x)
 
+instance (Generic1 t, Fold1' (Rep1 t) t, Functor f) => Fold1' (f :.: Rec1 t) t where
+  apply1' p talg alg (Comp1 x) = alg (Right (fmap (apply1' p talg talg . from1 . unRec1) x))
+
+instance Functor f => Fold1' (f :.: Rec1 g) t where
+  apply1' p talg alg (Comp1 x) = alg (Left (fmap unRec1 x))
+
 instance (Fold1' f t, Fold1' g t) => Fold1' (f :+: g) t where
   apply1' p talg (alg, _) (L1 x) = apply1' p talg alg x
   apply1' p talg (_, alg) (R1 x) = apply1' p talg alg x
@@ -86,6 +93,12 @@ instance (Generic1 t, Fold1' (Rep1 t) t, Fold1' g t) => Fold1' (M1 i c (Rec1 t) 
 
 instance Fold1' g t => Fold1' (M1 i c (Rec1 f) :*: g) t where
   apply1' p talg alg (M1 (Rec1 x) :*: g) = apply1' p talg (alg (Left x)) g
+
+instance (Generic1 t, Fold1' (Rep1 t) t, Fold1' g t, Functor f) => Fold1' (M1 i c (f :.: Rec1 t) :*: g) t where
+  apply1' p talg alg (M1 (Comp1 x) :*: g) = apply1' p talg (alg (Right (fmap (apply1' p talg talg . from1 . unRec1) x))) g
+
+instance (Fold1' h t, Functor f) => Fold1' (M1 i c (f :.: Rec1 g) :*: h) t where
+  apply1' p talg alg (M1 (Comp1 x) :*: h) = apply1' p talg (alg (Left (fmap unRec1 x))) h
 
 instance Fold1' (f :*: (g :*: h)) t => Fold1' ((f :*: g) :*: h) t where
   apply1' p talg alg ((f :*: g) :*: h) = apply1' p talg alg (f :*: (g :*: h))
